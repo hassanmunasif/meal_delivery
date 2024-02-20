@@ -75,30 +75,30 @@ class SimpleAssignmentPolicy(Policy):
         # print(dict(Action(action)))
         return Action(action)
 
-    def delay(self, sequence_of_actions, observation):
-        """
-        Calculate the total delay of a sequence of actions.
-        """
-
-        def get_customer_expected_delivery_time(customer_id):
-            # expected_delivery_time = None
-            # if customer_id is None:
-            #    expected_delivery_time = 0
-            #    return
-            expected_delivery_time = observation["customer_info"][customer_id]['expected_delivery_time']
-            # print(customer_id, expected_delivery_time, 'EDT')
-            return expected_delivery_time
-        if sequence_of_actions is None:
-            return 0
-        if len(sequence_of_actions) == 0:
-            return 0
-        delay = 0
-        for action in sequence_of_actions:
-            if action["type"] == "pickup":
-                continue
-            delay += max(0, action['start_at'] - get_customer_expected_delivery_time(action['customer_id']))
-            # print(action["type"],action["start_at"])
-        return delay
+    # def delay(self, sequence_of_actions, observation):
+    #     """
+    #     Calculate the total delay of a sequence of actions.
+    #     """
+    #
+    #     def get_customer_expected_delivery_time(customer_id):
+    #         # expected_delivery_time = None
+    #         # if customer_id is None:
+    #         #    expected_delivery_time = 0
+    #         #    return
+    #         expected_delivery_time = observation["customer_info"][customer_id]['expected_delivery_time']
+    #         # print(customer_id, expected_delivery_time, 'EDT')
+    #         return expected_delivery_time
+    #     if sequence_of_actions is None:
+    #         return 0
+    #     if len(sequence_of_actions) == 0:
+    #         return 0
+    #     delay = 0
+    #     for action in sequence_of_actions:
+    #         if action["type"] == "pickup":
+    #             continue
+    #         delay += max(0, action['start_at'] - get_customer_expected_delivery_time(action['customer_id']))
+    #         # print(action["type"],action["start_at"])
+    #     return delay
 
     def calculate_impact(self, sequence_of_actions, observation):
 
