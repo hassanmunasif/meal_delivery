@@ -1,5 +1,5 @@
 import random
-
+from src.templates import Observation
 
 class Order:
     r"""
@@ -114,10 +114,12 @@ class Restaurant:
             else:
                 break
 
-    def take_order(self, insertion_index: int, order: Order, time: int) -> None:
+    def take_order(self, insertion_index: int, order: Order, time: int , obs: Observation, customer_id) -> None:
         r"""
         Integrates an order into the restaurant by updating queue and time queues.
         """
+        waiting_time = obs["customer_info"][customer_id]['expected_delivery_time'] - (obs["customer_info"][customer_id]['order_time'] + 2000)
+        print(obs["customer_info"][customer_id]['expected_delivery_time'], obs["customer_info"][customer_id]['order_time'])
         # insert order into queue
         if insertion_index == -1:
             self.queue.append(order)
@@ -125,8 +127,12 @@ class Restaurant:
             self.queue.insert(insertion_index, order)
         # update time queues
         if len(self.queue) == 1:
-            self.estimated_time_queue.append(time + order.estimated_preparation_time)
-            self.time_queue.append(time + order.actual_preparation_time)
+            if order.order_type == 'pre_order':
+                self.estimated_time_queue.append(time + order.estimated_preparation_time + waiting_time )
+                self.time_queue.append(time + order.actual_preparation_time + waiting_time )
+            else:
+                self.estimated_time_queue.append(time + order.estimated_preparation_time)
+                self.time_queue.append(time + order.actual_preparation_time)
         else:
             if insertion_index == -1:
                 self.estimated_time_queue.append(self.estimated_time_queue[-1] + order.estimated_preparation_time)

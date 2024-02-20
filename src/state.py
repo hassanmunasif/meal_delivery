@@ -281,7 +281,7 @@ class MealDeliveryMDP:
                 #       f"Actual Prep Time: {order.actual_preparation_time}, Order Type: {order.order_type}")
 
                 # insert Order
-                restaurant.take_order(insertion_index, order, self.time)
+                restaurant.take_order(insertion_index, order, self.time, self.observation, customer_id)
 
         # integrate action into vehicles
         for vehicle in [v for v in self.vehicles.values() if v.name in vehicle_action.keys()]:

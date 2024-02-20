@@ -63,6 +63,16 @@ class SimpleAssignmentPolicy(Policy):
                                                                                             restaurant_id, obs)
             # print(new_insertion_index)
             # print(vehicle["sequence_of_actions"])
+            start_aty = -1
+            if order_type == 'Preorder':
+                start_aty = obs["customer_info"][customer_id]['expected_delivery_time'] + (obs["customer_info"][customer_id]['order_time'] - 2000)
+            print(start_aty)
+
+            #     obs['current_time'] + 2 * action["estimated_park_time"] + int(
+            #         self.tt_matrix[str(action["destination"])][str(obs["customer_info"][customer_id]["location"])]) +
+            #                          action[
+            #                                "estimated_wait_time"] + action["estimated_travel_time"] - get_customer_expected_delivery_time(
+            #                                customer_id)
 
             pickup_action = VehicleAction(restaurant_id, -1, new_insertion_index + 1, [customer_id], None)
             delivery_action = VehicleAction(customer_id, -1, new_insertion_index + 2, None, [restaurant_id])
