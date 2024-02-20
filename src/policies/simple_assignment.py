@@ -106,23 +106,53 @@ class SimpleAssignmentPolicy(Policy):
         alpha = 1
         beta = 1
 
+        def get_customer_order_time(customer_id):
+            return observation["customer_info"][customer_id]['order_time']
+
         def get_customer_expected_delivery_time(customer_id):
             return observation["customer_info"][customer_id]['expected_delivery_time']
+
+        def get_tt_from_last_destination_to_restaurant(self, action, index):
+            restaurant_id_key = sequence_of_actions[index + 1]["restaurant_id"]
+
+            if restaurant_id_key is not None and restaurant_id_key in observation["restaurant_info"]:
+                restaurant_id = observation["restaurant_info"][restaurant_id_key]
+                result = int(self.tt_matrix[str(action["destination"])][str(restaurant_id["location"])])
+                return result
+            else:
+                return 100  # arbitrary
 
         def get_order_type(customer_id):
             return observation["customer_info"][customer_id]['order_type']
 
+        # def get_delay_factor(preorder_type=False):
+        #     if preorder_type:
+        #         difference = abs(
+        #             get_customer_expected_delivery_time(customer_id) - get_customer_order_time(customer_id))
+        #         result = difference - 3600
+        #         # print(difference, result, 'RESULT')
+        #         return result
+        #     else:
+        #         return 0
+
         if sequence_of_actions is None or len(sequence_of_actions) == 0:
             return 0, {}
-
         impact = 0
-        for action in sequence_of_actions:
+        for i, action in enumerate(sequence_of_actions):
+            # print(action)
             if action["type"] == "pickup":
                 continue
-            # print(action['start_at'] + action["estimated_time_required"], get_customer_expected_delivery_time(action['customer_id']))
-            delay = (action['start_at'] + action["estimated_time_required"] - get_customer_expected_delivery_time(
-                action['customer_id']))
-            # max(0, current_time + 2*park_times + tt_from_last_destination_to_restaurant + exo_wait_time_at_restaurant + tt_rest)_customer - expected_delivery_time)
+
+            delay = max(0, (action['start_at'] + action["estimated_time_required"] - get_customer_expected_delivery_time(
+                action['customer_id'])))
+
+            # delay = 0
+            # if i + 1 < len(sequence_of_actions):
+            #     delay = (action['start_at'] + 2 * action[
+            #         "estimated_park_time"] + get_tt_from_last_destination_to_restaurant(self, action, i) + action[
+            #                  "estimated_wait_time"] + action[
+            #                  "estimated_travel_time"]) - get_customer_expected_delivery_time(action["customer_id"])
+
             delay_dict[action["customer_id"]] = delay
             # print(delay_dict)
             order_type = get_order_type(action['customer_id'])
@@ -204,13 +234,28 @@ class SimpleAssignmentPolicy(Policy):
         current_time = obs["current_time"]
         sequence_of_actions = obs["vehicle_info"][vehicle_id]["sequence_of_actions"]
 
+        def get_customer_expected_delivery_time(customer_id):
+            return obs["customer_info"][customer_id]['expected_delivery_time']
+
         # Checking if the sequence of actions is empty (added new)
         if not sequence_of_actions:
             expected_delivery_time = obs["customer_info"][customer_id]["expected_delivery_time"]
-            return -1, 0  # max(0, current_time + 2*park_times + tt_from_last_destination_to_restaurant + exo_wait_time_at_restaurant + tt_rest)_customer - expected_delivery_time)
+            return -1, 0
+            # max(0, current_time + 2*park_times + tt_from_last_destination_to_restaurant + exo_wait_time_at_restaurant + tt_rest_customer - expected_delivery_time)
 
         for action in sequence_of_actions:
             if action['start_at'] == -1:
+                if obs["customer_info"][customer_id]["order_type"] == 'Preorder' and action["type"] == "pickup" and action["started_at"] is not None:
+                    #action['start_at'] = current_time + 2 * action["estimated_park_time"] + int(self.tt_matrix[str(action["destination"])][str(obs["customer_info"][customer_id]["location"])]) + action[
+                    #    "estimated_wait_time"] + action["estimated_travel_time"] - get_customer_expected_delivery_time(
+                    #    customer_id)
+                    action['start_at'] = get_customer_expected_delivery_time(
+                        customer_id) - (2 * action["estimated_park_time"] + int(
+                        self.tt_matrix[str(action["destination"])][
+                            str(obs["customer_info"][customer_id]["location"])]) + action[
+                                             "estimated_wait_time"] + action[
+                                             "estimated_travel_time"])
+
                 if action["started_at"] is not None:
                     current_time = action['started_at']
                     action["start_at"] = action["started_at"]
@@ -267,8 +312,9 @@ class SimpleAssignmentPolicy(Policy):
             insertion_feasible = True
             # print(old_delay_dict, new_delay_dict)
             for c_id in old_delay_dict.keys():
-                # if new_delay_dict[c_id] - old_delay_dict[c_id] > 3600:
-                if (old_delay_dict[c_id] > 1800 and new_delay_dict[c_id] > old_delay_dict[c_id]):
+
+                if (1800 < old_delay_dict[c_id] < new_delay_dict[c_id]):
+                    # print(old_delay_dict[c_id] , new_delay_dict[c_id], "NOT FEASIBLE")
                     insertion_feasible = False
                     break
 
