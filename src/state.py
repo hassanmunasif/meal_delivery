@@ -200,13 +200,35 @@ class MealDeliveryMDP:
         return np.all([customer.status == 1 for customer in all_customers])
 
     @property
+
+
+
+
     def mean_delay(self) -> float:
-        r"""
-        Returns the mean delay (in minutes) of all customers that have been served this day. Delay per customer is
-        calculated as the maximum delay over all orders of the customer.
         """
-        return sum([max(0, max(customer.delivery_time.values()) - customer.expected_delivery_time)
-                    for customer in self.served_requests]) / len(self.served_requests) / 60
+        .
+        """
+        if not self.served_requests:  # Checking if the list is empty to prevent division by zero
+            return 0.0
+
+        total_delay = 0
+        for customer in self.served_requests:
+
+            actual_delay = max(customer.delivery_time.values()) - customer.expected_delivery_time
+
+            if actual_delay > 10 * 60:  # more than 5 minutes late
+                delay = actual_delay - 10*60
+            elif actual_delay < -10 * 60:  # more than 10 minutes early
+                delay = -actual_delay -10 * 60
+            else:
+                delay = 0  # Within the acceptable window
+
+            total_delay += delay
+
+        # Calculate the mean delay in minutes
+        return total_delay / len(self.served_requests) / 60
+
+
 
     def step(self, action: Action) -> Tuple[Observation, float, bool, dict]:
         r"""
@@ -313,15 +335,29 @@ class MealDeliveryMDP:
         cost = 0  # For now, we set the immediate cost in a state to zero as there is no meaningful definition of cost
 
         # sample a new customer and update current time
-        if self.unknown_requests:
-            new_customer = self.unknown_requests.pop(0)
-            new_customer.status = 0
-            self.known_requests.append(new_customer)
-            self.unassigned_orders.extend([(new_customer.name, restaurant_id)
-                                           for restaurant_id in new_customer.restaurant_choice])
-            self.time = new_customer.order_time
-        else:
-            self.time += 360  # forward one hour
+        if self.unassigned_orders:  # case 1: We still have customers that were not assigned yet
+            if self.unknown_requests:
+                if self.unknown_requests[0].order_time == self.time:
+                    new_customer = self.unknown_requests.pop(0)
+                    new_customer.status = 0
+                    self.known_requests.append(new_customer)
+                    self.unassigned_orders.extend([(new_customer.name, restaurant_id)
+                                                   for restaurant_id in new_customer.restaurant_choice])
+                else:
+                    self.time += 1
+            else:
+                self.time += 360  # forward one hour
+
+        else:  # case 2: we do not have unassigned customers
+            if self.unknown_requests:
+                new_customer = self.unknown_requests.pop(0)
+                new_customer.status = 0
+                self.known_requests.append(new_customer)
+                self.unassigned_orders.extend([(new_customer.name, restaurant_id)
+                                               for restaurant_id in new_customer.restaurant_choice])
+                self.time = new_customer.order_time
+            else:
+                self.time += 360  # forward one hour
 
         # update all restaurant status
         for restaurant in self.restaurants.values():
@@ -458,7 +494,7 @@ class MealDeliveryMDP:
 
 
         # initialize customer requests
-        # customer_data = []  # List to store customer data
+        customer_data = []  # List to store customer data
         for i, (order_time, order_type) in enumerate(zip(order_times, self.order_types)):
             if order_type == 'Instant':
                 expected_delivery_time = order_time + self.service_promise * 60
@@ -498,40 +534,87 @@ class MealDeliveryMDP:
             # print(
             #     f"Customer {customer.name} - order Time: {customer.order_time}, Order Type: {order_type}, Expected Delivery Time: {expected_delivery_time}")
 
-            # # Create a dictionary for this customer
-            # customer_dict = {
-            #     'Customer ID': customer.name,
-            #     'Order Time': customer.order_time,
-            #     'Order Type': order_type,
-            #     'Expected Delivery Time': expected_delivery_time
-            # }
-            #
-            # # Append the customer's data to the list
-            # customer_data.append(customer_dict)
+            # Create a dictionary for this customer
+            customer_dict = {
+                'Customer ID': customer.name,
+                'Order Time': customer.order_time/60,
+                'Order Type': order_type,
+                'Expected Delivery Time': expected_delivery_time/60
+            }
+
+            # Append the customer's data to the list
+            customer_data.append(customer_dict)
 
         #Count and print the total number of Preorder and Instant customers
         preorder_count = self.order_types.count('Preorder')
         instant_count = self.order_types.count('Instant')
-        print(f"Total number of Preorder customers: {preorder_count}")
-        print(f"Total number of Instant customers: {instant_count}")
+        # print(f"Total number of Preorder customers: {preorder_count}")
+        # print(f"Total number of Instant customers: {instant_count}")
 
-        # # Convert the list of dictionaries to a pandas DataFrame
+        # Convert the list of dictionaries to a pandas DataFrame
         # df = pd.DataFrame(customer_data)
+        # print(df)
+        # # # Export the DataFrame to a CSV file
+        # # df.to_csv('customer_data.csv', index=False)
         #
-        # # Export the DataFrame to a CSV file
-        # df.to_csv('customer_data.csv', index=False)
-
-
-
-        ####Default
-        ### for i, order_time in enumerate(order_times):
-        #     # Create an Order instance to determine the order type
-        #     order = Order(customer_id=str(i),
-        #               start_at=order_time,
-        #               estimated_preparation_time=self.expected_cook_time,  # its dummy, replace with actual value
-        #               actual_preparation_time=self._sample_cook_time(),  # its dummy, Replace with actual value
-        #               order_type=None)  # order_type is determined within Order class
+        # # Plotting the histogram
+        # plt.figure(figsize=(10, 6))
         #
+        # # Filtering data by order type and plotting
+        # preorders = df[df['Order Type'] == 'Preorder']['Expected Delivery Time']
+        # instants = df[df['Order Type'] == 'Instant']['Expected Delivery Time']
+        #
+        # plt.hist(preorders, bins=10, alpha=0.7, color='orange', label='Preorder')
+        # plt.hist(instants, bins=10, alpha=0.7, color='green', label='Instant')
+        #
+        # plt.xlabel('Expected Delivery Time')
+        # plt.ylabel('Number of Orders')
+        # plt.title('Histogram of Orders by Expected Delivery Time')
+        # plt.legend()
+        # plt.savefig('order_time_histogram.png')
+        # plt.show()
+        #
+        # # Plotting the histogram
+        # plt.figure(figsize=(10, 6))
+        #
+        # # Filtering data by order type and plotting
+        # preorders = df[df['Order Type'] == 'Preorder']['Order Time']
+        # instants = df[df['Order Type'] == 'Instant']['Order Time']
+        #
+        # plt.hist(preorders, bins=10, alpha=0.7, color='orange', label='Preorder')
+        # plt.hist(instants, bins=10, alpha=0.7, color='green', label='Instant')
+        #
+        # plt.xlabel('Order Time')
+        # plt.ylabel('Number of Orders')
+        # plt.title('Histogram of Orders by Order Time')
+        # plt.legend()
+        # plt.savefig('order_time_histogram.png')
+        # plt.show()
+        #
+        # Filtering only preorders
+        # preorders = df[df['Order Type'] == 'Preorder']
+        #
+        # # Converting 'Order Time' from seconds to minutes for consistency with 'Expected Delivery Time'
+        # preorders['Order Time'] = preorders['Order Time']
+        #
+        # # Plotting the histogram
+        # plt.figure(figsize=(10, 6))
+        #
+        # # Plot histograms for 'Expected Delivery Time' and 'Order Time'
+        # plt.hist(preorders['Expected Delivery Time'], bins=10, alpha=0.7, color='blue', label='Expected Delivery Time')
+        # plt.hist(preorders['Order Time'], bins=10, alpha=0.7, color='red', label='Order Time (minutes)')
+        #
+        # plt.xlabel('Time')
+        # plt.ylabel('Frequency')
+        # plt.title('Distribution of Expected Delivery Time and Order Time for Preorders')
+        # plt.legend()
+        #
+        # # Save the plot to a file (optional)
+        # plt.savefig('preorder_times_histogram.png')
+        #
+        # plt.show()
+
+
 
 
     def _sample_travel_time(self, origin: int, destination: int) -> int:

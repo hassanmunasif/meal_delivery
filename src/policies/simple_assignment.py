@@ -17,31 +17,18 @@ class SimpleAssignmentPolicy(Policy):
         Policy.__init__(self)
         self.tt_matrix = tt_matrix
 
-    # def act(self, obs: Observation) -> Action:
-    #     r"""
-    #     Creates an action based on an observation.
-    #     """
-    #     action = {"vehicle_action": defaultdict(lambda: []),
-    #               "restaurant_action": defaultdict(lambda: [])}
-    #
-    #     for customer_id, restaurant_id in obs["unassigned_orders"]:
-    #
-    #         vehicle_index = sorted(obs["vehicle_info"].keys(),
-    #                                key=lambda x: obs["vehicle_info"][x]["busy_time"])[0]
-    #         pickup_action = VehicleAction(restaurant_id, -1, -1, [customer_id], None)
-    #         delivery_action = VehicleAction(customer_id, -1, -1, None, [restaurant_id])
-    #         restaurant_action = RestaurantAction(customer_id, -1, -1)
-    #         action["vehicle_action"][vehicle_index].extend([pickup_action, delivery_action])
-    #         action["restaurant_action"][restaurant_id].append(restaurant_action)
-    #         # print(action)
-    #     return Action(action)
+
 
     def act(self, obs: Observation) -> Action:
         r"""
         Creates an action based on an observation.
         """
+        when_to_assign = 40 * 60
+        wait_time = 20 * 60
+
         action = {"vehicle_action": defaultdict(lambda: []),
                   "restaurant_action": defaultdict(lambda: [])}
+
 
         for customer_id, restaurant_id in obs["unassigned_orders"]:
             order_info = obs["customer_info"][customer_id]
@@ -63,52 +50,35 @@ class SimpleAssignmentPolicy(Policy):
                                                                                             restaurant_id, obs)
             # print(new_insertion_index)
             # print(vehicle["sequence_of_actions"])
-            start_aty = -1
+            start_at_pre = -1
+            assign_order = True
             if order_type == 'Preorder':
-                start_aty = obs["customer_info"][customer_id]['expected_delivery_time'] + (obs["customer_info"][customer_id]['order_time'] - 2000)
-            print(start_aty)
+                order_time = int((obs["customer_info"][customer_id]['order_time']))
+                etd = int(obs["customer_info"][customer_id]['expected_delivery_time'])
+                start_at_pre = order_time + ((abs(order_time-etd))-wait_time)
+                assign_order = (etd - obs["current_time"]) < when_to_assign
 
-            #     obs['current_time'] + 2 * action["estimated_park_time"] + int(
-            #         self.tt_matrix[str(action["destination"])][str(obs["customer_info"][customer_id]["location"])]) +
-            #                          action[
-            #                                "estimated_wait_time"] + action["estimated_travel_time"] - get_customer_expected_delivery_time(
-            #                                customer_id)
 
-            pickup_action = VehicleAction(restaurant_id, -1, new_insertion_index + 1, [customer_id], None)
+
+
+            pickup_action = VehicleAction(restaurant_id, start_at_pre, new_insertion_index + 1, [customer_id], None)
             delivery_action = VehicleAction(customer_id, -1, new_insertion_index + 2, None, [restaurant_id])
 
-            restaurant_action = RestaurantAction(customer_id, -1, -1)
-            action["vehicle_action"][vehicle_index].extend([pickup_action, delivery_action])
-            action["restaurant_action"][restaurant_id].append(restaurant_action)
+            # #For simple assignment policy run the following lines:
+            # pickup_action = VehicleAction(restaurant_id, -1, -1, [customer_id], None)
+            # delivery_action = VehicleAction(customer_id, -1, -1, None, [restaurant_id])
 
-            # print(vehicle_index)
-        # print(dict(Action(action)))
+            restaurant_action = RestaurantAction(customer_id, -1, -1)
+            if assign_order:
+                action["vehicle_action"][vehicle_index].extend([pickup_action, delivery_action])
+                action["restaurant_action"][restaurant_id].append(restaurant_action)
+
+
         return Action(action)
 
-    # def delay(self, sequence_of_actions, observation):
-    #     """
-    #     Calculate the total delay of a sequence of actions.
-    #     """
-    #
-    #     def get_customer_expected_delivery_time(customer_id):
-    #         # expected_delivery_time = None
-    #         # if customer_id is None:
-    #         #    expected_delivery_time = 0
-    #         #    return
-    #         expected_delivery_time = observation["customer_info"][customer_id]['expected_delivery_time']
-    #         # print(customer_id, expected_delivery_time, 'EDT')
-    #         return expected_delivery_time
-    #     if sequence_of_actions is None:
-    #         return 0
-    #     if len(sequence_of_actions) == 0:
-    #         return 0
-    #     delay = 0
-    #     for action in sequence_of_actions:
-    #         if action["type"] == "pickup":
-    #             continue
-    #         delay += max(0, action['start_at'] - get_customer_expected_delivery_time(action['customer_id']))
-    #         # print(action["type"],action["start_at"])
-    #     return delay
+
+
+
 
     def calculate_impact(self, sequence_of_actions, observation):
 
@@ -135,15 +105,7 @@ class SimpleAssignmentPolicy(Policy):
         def get_order_type(customer_id):
             return observation["customer_info"][customer_id]['order_type']
 
-        # def get_delay_factor(preorder_type=False):
-        #     if preorder_type:
-        #         difference = abs(
-        #             get_customer_expected_delivery_time(customer_id) - get_customer_order_time(customer_id))
-        #         result = difference - 3600
-        #         # print(difference, result, 'RESULT')
-        #         return result
-        #     else:
-        #         return 0
+
 
         if sequence_of_actions is None or len(sequence_of_actions) == 0:
             return 0, {}
@@ -153,15 +115,13 @@ class SimpleAssignmentPolicy(Policy):
             if action["type"] == "pickup":
                 continue
 
-            delay = max(0, (action['start_at'] + action["estimated_time_required"] - get_customer_expected_delivery_time(
-                action['customer_id'])))
+            #delay = max(0, (action['start_at'] + action["estimated_time_required"] - get_customer_expected_delivery_time(
+            #    action['customer_id'])))
+            delay = max(0,
+                        abs(action['start_at'] + action["estimated_time_required"] - get_customer_expected_delivery_time(
+                            action['customer_id']))-10*60)
 
-            # delay = 0
-            # if i + 1 < len(sequence_of_actions):
-            #     delay = (action['start_at'] + 2 * action[
-            #         "estimated_park_time"] + get_tt_from_last_destination_to_restaurant(self, action, i) + action[
-            #                  "estimated_wait_time"] + action[
-            #                  "estimated_travel_time"]) - get_customer_expected_delivery_time(action["customer_id"])
+
 
             delay_dict[action["customer_id"]] = delay
             # print(delay_dict)
@@ -209,23 +169,6 @@ class SimpleAssignmentPolicy(Policy):
                 "estimated_park_time"]
         return sequence_of_stops
 
-    def get_best_vehicle_for_order(self, customer_id, restaurant_id, obs):
-
-        best_vehicle_index = None
-        best_insertion_index = -1
-        best_cost = float('inf')
-
-        for vehicle_id, vehicle_info in obs["vehicle_info"].items():
-
-            insertion_index, insertion_cost = self.get_insertion_index_for_new_pickup_action(vehicle_id, customer_id,
-                                                                                             restaurant_id, obs)
-
-            if insertion_cost < best_cost:
-                best_cost = insertion_cost
-                best_vehicle_index = vehicle_id
-                best_insertion_index = insertion_index
-
-        return best_vehicle_index, best_insertion_index
 
     def get_insertion_index_for_new_pickup_action(self, vehicle_id, customer_id, restaurant_id, obs) -> (int, int):
         '''
@@ -255,16 +198,7 @@ class SimpleAssignmentPolicy(Policy):
 
         for action in sequence_of_actions:
             if action['start_at'] == -1:
-                if obs["customer_info"][customer_id]["order_type"] == 'Preorder' and action["type"] == "pickup" and action["started_at"] is not None:
-                    #action['start_at'] = current_time + 2 * action["estimated_park_time"] + int(self.tt_matrix[str(action["destination"])][str(obs["customer_info"][customer_id]["location"])]) + action[
-                    #    "estimated_wait_time"] + action["estimated_travel_time"] - get_customer_expected_delivery_time(
-                    #    customer_id)
-                    action['start_at'] = get_customer_expected_delivery_time(
-                        customer_id) - (2 * action["estimated_park_time"] + int(
-                        self.tt_matrix[str(action["destination"])][
-                            str(obs["customer_info"][customer_id]["location"])]) + action[
-                                             "estimated_wait_time"] + action[
-                                             "estimated_travel_time"])
+
 
                 if action["started_at"] is not None:
                     current_time = action['started_at']
@@ -323,13 +257,13 @@ class SimpleAssignmentPolicy(Policy):
             # print(old_delay_dict, new_delay_dict)
             for c_id in old_delay_dict.keys():
 
-                if (1800 < old_delay_dict[c_id] < new_delay_dict[c_id]):
+                if (1800 < old_delay_dict[c_id] < new_delay_dict[c_id]) or (new_delay_dict[c_id]<old_delay_dict[c_id]<-1800):
                     # print(old_delay_dict[c_id] , new_delay_dict[c_id], "NOT FEASIBLE")
                     insertion_feasible = False
                     break
 
             # Update the best cost and best insertion index if this is the best option so far
-            if insertion_cost < best_cost and insertion_feasible:
+            if insertion_cost < best_cost:
                 best_cost = insertion_cost
                 best_insertion = i
         return best_insertion, best_cost

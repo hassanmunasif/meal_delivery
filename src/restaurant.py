@@ -118,8 +118,8 @@ class Restaurant:
         r"""
         Integrates an order into the restaurant by updating queue and time queues.
         """
-        waiting_time = obs["customer_info"][customer_id]['expected_delivery_time'] - (obs["customer_info"][customer_id]['order_time'] + 2000)
-        print(obs["customer_info"][customer_id]['expected_delivery_time'], obs["customer_info"][customer_id]['order_time'])
+        # waiting_time = obs["customer_info"][customer_id]['expected_delivery_time'] - (obs["customer_info"][customer_id]['order_time'] + 2000)
+        # print(obs["customer_info"][customer_id]['expected_delivery_time'], obs["customer_info"][customer_id]['order_time'])
         # insert order into queue
         if insertion_index == -1:
             self.queue.append(order)
@@ -128,8 +128,8 @@ class Restaurant:
         # update time queues
         if len(self.queue) == 1:
             if order.order_type == 'pre_order':
-                self.estimated_time_queue.append(time + order.estimated_preparation_time + waiting_time )
-                self.time_queue.append(time + order.actual_preparation_time + waiting_time )
+                self.estimated_time_queue.append(time + order.estimated_preparation_time)
+                self.time_queue.append(time + order.actual_preparation_time)
             else:
                 self.estimated_time_queue.append(time + order.estimated_preparation_time)
                 self.time_queue.append(time + order.actual_preparation_time)

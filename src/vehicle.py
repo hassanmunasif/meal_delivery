@@ -148,8 +148,10 @@ class Vehicle:
             if self.sequence_of_stops[0].started_at is None:
                 if -1 != self.sequence_of_stops[0].start_at <= _time:
                     self.sequence_of_stops[0].started_at = self.sequence_of_stops[0].start_at
-                else:
+                elif self.sequence_of_stops[0].start_at == -1:
                     self.sequence_of_stops[0].started_at = _time
+                else:
+                    break
             _time = self.sequence_of_stops[0].started_at
             _time += self.sequence_of_stops[0].actual_total_time
             if _time > time:
